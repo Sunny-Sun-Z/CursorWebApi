@@ -11,16 +11,14 @@ public class CustomHeaderMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Add a custom request header (for demonstration)
-        // context.Request.Headers["X-Request-Received"] = DateTime.UtcNow.ToString("o");
+        context.Request.Headers["X-Request-Received"] = DateTime.UtcNow.ToString("o");
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["X-Powered-By"] = "CursorWebApi";
+            context.Response.Headers["X-Processed-At"] = DateTime.UtcNow.ToString("o");
+            return Task.CompletedTask;
+        });
 
-        // Call the next middleware/component in the pipeline
         await _next(context);
-
-        // Add custom response headers
-        context.Response.Headers["X-Powered-By"] = "CursorWebApi";
-        context.Response.Headers["X-Processed-At"] = DateTime.UtcNow.ToString("o");
-
-        // Optionally, you can modify the response body here (advanced)
     }
 }

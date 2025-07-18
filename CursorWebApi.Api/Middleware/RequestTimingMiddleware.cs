@@ -15,19 +15,24 @@ public class RequestTimingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var stopwatch = Stopwatch.StartNew();
+       var stopwatch = Stopwatch.StartNew();
+
+        context.Response.OnStarting(() =>
+        {
+            var elapsedMs = stopwatch.ElapsedMilliseconds;
+            context.Response.Headers["X-Elapsed-Milliseconds"] = elapsedMs.ToString();
+            return Task.CompletedTask;
+        });
+
         await _next(context);
+
         stopwatch.Stop();
 
-        var elapsedMs = stopwatch.ElapsedMilliseconds;
         var path = context.Request.Path;
         var method = context.Request.Method;
         var statusCode = context.Response.StatusCode;
 
         _logger.LogInformation("Request {Method} {Path} responded {StatusCode} in {Elapsed} ms",
-            method, path, statusCode, elapsedMs);
-
-        // Optionally, add timing info to the response header
-        context.Response.Headers["X-Elapsed-Milliseconds"] = elapsedMs.ToString();
+            method, path, statusCode, stopwatch.ElapsedMilliseconds);
     }
 }

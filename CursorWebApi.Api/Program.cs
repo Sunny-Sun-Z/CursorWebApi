@@ -183,6 +183,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseMiddleware<CursorWebApi.Api.Middleware.RequestTimingMiddleware>();
+app.UseMiddleware<CursorWebApi.Api.Middleware.CustomHeaderMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -204,6 +205,13 @@ app.UseIpRateLimiting();
 //         title: "A custom error occurred"
 //     );
 // });
+
+app.MapGet("/show-request-header", (HttpContext context, ILogger<Program> logger) =>
+{
+    var received = context.Request.Headers["X-Request-Received"].FirstOrDefault();
+    logger.LogInformation("X-Request-Received header value: {Received}", received);
+    return Results.Ok(new { ReceivedAt = received ?? "Not set" });
+});
 
 app.MapGet("/test-auth", () => "✅ Authentication working!").RequireAuthorization();
 // app.MapGet("/products", [Authorize] async (IProductRepository repo) => await repo.GetAllAsync());
