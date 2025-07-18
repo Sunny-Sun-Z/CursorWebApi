@@ -12,10 +12,18 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics;
 // using System.Threading.RateLimiting;
 using AspNetCoreRateLimit;
+using Serilog;
 
+
+// Configure Serilog at the very top (before builder)
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("logs/webapi.log", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Host.UseSerilog();
 // register services
 
 builder.Services.AddEndpointsApiExplorer();
@@ -264,6 +272,15 @@ app.MapPost("/login", (UserLogin login) =>
     }
 
     return Results.Unauthorized();
+});
+
+// Example: Logging in a minimal API endpoint
+app.MapGet("/logtest", (ILogger<Program> logger) =>
+{
+    logger.LogInformation("This is an info log from /logtest endpoint!");
+    logger.LogWarning("This is a warning log!");
+    logger.LogError("This is an error log!");
+    return Results.Ok("Logged some messages! Check the console and logs/webapi.log");
 });
 
 app.Run();
