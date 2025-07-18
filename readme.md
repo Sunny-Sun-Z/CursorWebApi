@@ -113,3 +113,44 @@ dotnet build --no-incremental
 add jwt:
 dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
 dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+
+dotnet add package Microsoft.AspNetCore.RateLimiting // not working though
+
+dotnet add package Serilog.AspNetCore
+dotnet add package Serilog.Sinks.Console
+dotnet add package Serilog.Sinks.File
+
+
+
+Exception Handling Plan:
+Global Exception Middleware - Catch all unhandled exceptions
+Custom Exception Types - Business logic exceptions
+Exception Filters - Handle specific exception types
+Consistent Error Responses - Standardized error format
+Logging Integration - Log exceptions for debugging
+
+
+
+done:
+Project Setup: Solution and project structure (API, Application, Domain, Infrastructure)
+CRUD Entity: Product entity, repository, service, and CRUD endpoints (minimal API)
+Authentication & Authorization: JWT, role-based policies
+CORS: Configured
+OpenAPI (Swagger): Configured and working
+Exception Handling: Global middleware, endpoint filters
+
+next:
+1. SQL Server & Caching
+Set up EF Core with SQL Server
+Add caching (in-memory or distributed)
+2. Rate Limiting & Throttling
+Add middleware for rate limiting
+3. Serilog & Centralized Logging
+Integrate Serilog for structured logging
+4. Filters & Middleware
+Demonstrate custom middleware and endpoint filters
+(You’ve already done some of this with exception handling!)
+5. Routing
+Attribute routing, route prefixes, convention-based routing (mainly for controllers, but can show minimal API patterns)
+
+
