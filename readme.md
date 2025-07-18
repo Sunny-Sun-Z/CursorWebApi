@@ -112,3 +112,4 @@ dotnet build --no-incremental
 
 add jwt:
 dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
+dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
