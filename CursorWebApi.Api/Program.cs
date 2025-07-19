@@ -235,8 +235,12 @@ app.MapPost("/products", async (Product product, IProductRepository repo) =>
     await repo.AddAsync(product);
     return Results.Created($"/products/{product.Id}", product);
 })
-.RequireAuthorization("AdminOnly")
+//.RequireAuthorization("AdminOnly")
+// below 2 use only 1, otherwise the second will make the first never be triggered if there is any error.
 .AddEndpointFilter<CursorWebApi.Api.Filters.ExceptionEndpointFilter>()
+.AddEndpointFilter<CursorWebApi.Api.Filters.ValidationAndLoggingEndpointFilter>()
+
+
 .RequireRateLimiting("fixed");  // endpoint level, also can globally, see above
 
 app.MapPut("/products/{id}", async (int id, Product product, IProductRepository repo) =>
