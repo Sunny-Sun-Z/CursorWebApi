@@ -71,7 +71,8 @@ builder.Services.AddSwaggerGen(c =>
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-builder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
+// Use Singleton for in-memory repository to persist data across requests
+builder.Services.AddSingleton<IProductRepository, InMemoryProductRepository>();
 builder.Services.AddScoped<IProductService, ProductService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
