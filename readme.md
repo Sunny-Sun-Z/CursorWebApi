@@ -101,7 +101,11 @@ dotnet sln add CursorWebApi.Application/CursorWebApi.Application.csproj
 dotnet sln add CursorWebApi.Domain/CursorWebApi.Domain.csproj
 dotnet sln add CursorWebApi.Infrastructure/CursorWebApi.Infrastructure.csproj
 
+dotnet add CursorWebApi.Application package Microsoft.Extensions.Logging.Abstractions
+
 dotnet run
+
+ taskkill /F /IM dotnet.exe   ---- for to stop other processes taken
 
 add reference:
 dotnet add CursorWebApi.Infrastructure reference CursorWebApi.Application

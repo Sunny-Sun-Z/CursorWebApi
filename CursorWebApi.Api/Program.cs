@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Diagnostics;
 // using System.Threading.RateLimiting;
 using AspNetCoreRateLimit;
 using Serilog;
+using Microsoft.Extensions.Caching.Memory;
 
 
 // Configure Serilog at the very top (before builder)
@@ -145,7 +146,12 @@ builder.Services.AddCors(options =>
 //     });
 // });
 
- builder.Services.AddMemoryCache();
+// Configure in-memory caching
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024; // Maximum number of cache entries
+    options.ExpirationScanFrequency = TimeSpan.FromMinutes(5); // How often to scan for expired entries
+});
    builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
    builder.Services.AddInMemoryRateLimiting();
    builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
@@ -213,6 +219,18 @@ app.MapGet("/show-request-header", (HttpContext context, ILogger<Program> logger
     var received = context.Request.Headers["X-Request-Received"].FirstOrDefault();
     logger.LogInformation("X-Request-Received header value: {Received}", received);
     return Results.Ok(new { ReceivedAt = received ?? "Not set" });
+});
+
+// Cache monitoring endpoint
+app.MapGet("/cache/stats", (IMemoryCache cache) =>
+{
+    // Note: IMemoryCache doesn't expose statistics directly
+    // In a real application, you'd use a more sophisticated cache implementation
+    return Results.Ok(new {
+        Message = "Cache is active",
+        Note = "Use logging to monitor cache hits/misses",
+        CacheType = "In-Memory Cache"
+    });
 });
 
 app.MapGet("/test-auth", () => "✅ Authentication working!").RequireAuthorization();

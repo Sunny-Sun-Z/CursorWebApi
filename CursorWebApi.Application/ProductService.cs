@@ -1,6 +1,7 @@
 using CursorWebApi.Domain;
 using CursorWebApi.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace CursorWebApi.Application;
 
@@ -8,23 +9,64 @@ public class ProductService : IProductService
 {
     private readonly IProductRepository _repository;
     private readonly ILogger<ProductService> _logger;
+    private readonly IMemoryCache _cache;
 
-    public ProductService(IProductRepository repository, ILogger<ProductService> logger)
+    public ProductService(IProductRepository repository, ILogger<ProductService> logger, IMemoryCache cache)
     {
         _repository = repository;
         _logger = logger;
+        _cache = cache;
     }
 
     public async Task<IEnumerable<Product>> GetAllProductsAsync()
     {
-        _logger.LogInformation("Retrieving all products");
-        return await _repository.GetAllAsync();
+        const string cacheKey = "all_products";
+
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<Product>? cachedProducts))
+        {
+            _logger.LogInformation("Retrieved all products from cache");
+            return cachedProducts!;
+        }
+
+        _logger.LogInformation("Retrieving all products from repository");
+        var products = await _repository.GetAllAsync();
+
+        // Cache for 5 minutes
+        var cacheOptions = new MemoryCacheEntryOptions()
+            .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(10));
+
+        _cache.Set(cacheKey, products, cacheOptions);
+        _logger.LogInformation("Cached {ProductCount} products", products.Count());
+
+        return products;
     }
 
     public async Task<Product?> GetProductByIdAsync(int id)
     {
-        _logger.LogInformation("Retrieving product with ID: {ProductId}", id);
-        return await _repository.GetByIdAsync(id);
+        var cacheKey = $"product_{id}";
+
+        if (_cache.TryGetValue(cacheKey, out Product? cachedProduct))
+        {
+            _logger.LogInformation("Retrieved product {ProductId} from cache", id);
+            return cachedProduct;
+        }
+
+        _logger.LogInformation("Retrieving product with ID: {ProductId} from repository", id);
+        var product = await _repository.GetByIdAsync(id);
+
+        if (product != null)
+        {
+            // Cache for 10 minutes
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetSlidingExpiration(TimeSpan.FromMinutes(10))
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
+
+            _cache.Set(cacheKey, product, cacheOptions);
+            _logger.LogInformation("Cached product {ProductId}", id);
+        }
+
+        return product;
     }
 
     public async Task<Product> CreateProductAsync(string name, decimal price, string category, int stockQuantity = 0)
@@ -36,6 +78,9 @@ public class ProductService : IProductService
         var product = Product.Create(name, price, category, stockQuantity);
 
         await _repository.AddAsync(product);
+
+        // Invalidate related caches
+        InvalidateProductCaches(product.Id, category);
 
         _logger.LogInformation("Product created successfully with ID: {ProductId}", product.Id);
         return product;
@@ -49,12 +94,15 @@ public class ProductService : IProductService
         if (existingProduct == null)
             throw new ProductNotFoundException(id);
 
-                // Business Rule: Use domain methods for validation
+        // Business Rule: Use domain methods for validation
         existingProduct.UpdateName(name);
         existingProduct.UpdatePrice(price);
         existingProduct.UpdateCategory(category);
 
         await _repository.UpdateAsync(existingProduct);
+
+        // Invalidate related caches
+        InvalidateProductCaches(id, category);
 
         _logger.LogInformation("Product updated successfully: {ProductId}", id);
     }
@@ -76,6 +124,9 @@ public class ProductService : IProductService
 
         await _repository.DeleteAsync(id);
 
+        // Invalidate related caches
+        InvalidateProductCaches(id, product.Category);
+
         _logger.LogInformation("Product deleted successfully: {ProductId}", id);
     }
 
@@ -86,8 +137,27 @@ public class ProductService : IProductService
         if (string.IsNullOrWhiteSpace(category))
             throw new ValidationException("Category cannot be empty.");
 
+        var cacheKey = $"category_{category.ToLowerInvariant()}";
+
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<Product>? cachedProducts))
+        {
+            _logger.LogInformation("Retrieved products for category '{Category}' from cache", category);
+            return cachedProducts!;
+        }
+
+        _logger.LogInformation("Retrieving products by category: {Category} from repository", category);
         var allProducts = await _repository.GetAllAsync();
-        return allProducts.Where(p => p.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+        var categoryProducts = allProducts.Where(p => p.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // Cache for 5 minutes
+        var cacheOptions = new MemoryCacheEntryOptions()
+            .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(15));
+
+        _cache.Set(cacheKey, categoryProducts, cacheOptions);
+        _logger.LogInformation("Cached {ProductCount} products for category '{Category}'", categoryProducts.Count, category);
+
+        return categoryProducts;
     }
 
     public async Task<IEnumerable<Product>> GetLowStockProductsAsync(int threshold = 5)
@@ -97,8 +167,27 @@ public class ProductService : IProductService
         if (threshold < 0)
             throw new ValidationException("Stock threshold cannot be negative.");
 
+        var cacheKey = $"low_stock_{threshold}";
+
+        if (_cache.TryGetValue(cacheKey, out IEnumerable<Product>? cachedProducts))
+        {
+            _logger.LogInformation("Retrieved low stock products (threshold: {Threshold}) from cache", threshold);
+            return cachedProducts!;
+        }
+
+        _logger.LogInformation("Retrieving products with low stock (threshold: {Threshold}) from repository", threshold);
         var allProducts = await _repository.GetAllAsync();
-        return allProducts.Where(p => p.IsLowStock(threshold));
+        var lowStockProducts = allProducts.Where(p => p.IsLowStock(threshold)).ToList();
+
+        // Cache for 2 minutes (low stock changes frequently)
+        var cacheOptions = new MemoryCacheEntryOptions()
+            .SetSlidingExpiration(TimeSpan.FromMinutes(2))
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+
+        _cache.Set(cacheKey, lowStockProducts, cacheOptions);
+        _logger.LogInformation("Cached {ProductCount} low stock products (threshold: {Threshold})", lowStockProducts.Count, threshold);
+
+        return lowStockProducts;
     }
 
     public async Task<decimal> CalculateProductDiscountAsync(int productId, decimal discountPercentage)
@@ -117,5 +206,28 @@ public class ProductService : IProductService
             product.Price, discountedPrice);
 
         return discountedPrice;
+    }
+
+    // Cache invalidation helper method
+    private void InvalidateProductCaches(int productId, string category)
+    {
+        _logger.LogInformation("Invalidating caches for product {ProductId} and category '{Category}'", productId, category);
+
+        // Invalidate individual product cache
+        _cache.Remove($"product_{productId}");
+
+        // Invalidate all products cache
+        _cache.Remove("all_products");
+
+        // Invalidate category cache
+        _cache.Remove($"category_{category.ToLowerInvariant()}");
+
+        // Invalidate low stock caches (all thresholds)
+        for (int threshold = 1; threshold <= 10; threshold++)
+        {
+            _cache.Remove($"low_stock_{threshold}");
+        }
+
+        _logger.LogInformation("Cache invalidation completed for product {ProductId}", productId);
     }
 }
