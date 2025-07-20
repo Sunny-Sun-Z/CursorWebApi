@@ -71,7 +71,8 @@ builder.Services.AddSwaggerGen(c =>
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-builder.Services.AddSingleton<IProductRepository, InMemoryProductRepository>();
+builder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = jwtSettings["Key"];
@@ -216,23 +217,17 @@ app.MapGet("/show-request-header", (HttpContext context, ILogger<Program> logger
 app.MapGet("/test-auth", () => "✅ Authentication working!").RequireAuthorization();
 // app.MapGet("/products", [Authorize] async (IProductRepository repo) => await repo.GetAllAsync());
 // or:
-app.MapGet("/products", async (IProductRepository repo) =>
-        await repo.GetAllAsync()).RequireAuthorization();
+app.MapGet("/products", async (IProductService service) =>
+        await service.GetAllProductsAsync());
+        //.RequireAuthorization();
 
 
-app.MapGet("/products/{id}", async (int id, IProductRepository repo) =>
-    await repo.GetByIdAsync(id) is Product product ? Results.Ok(product) : Results.NotFound());
+app.MapGet("/products/{id}", async (int id, IProductService service) =>
+    await service.GetProductByIdAsync(id) is Product product ? Results.Ok(product) : Results.NotFound());
 
-// app.MapPost("/products",  [Authorize(Policy = "AdminOnly")] async (Product product, IProductRepository repo) =>
-// {
-//     await repo.AddAsync(product);
-//     return Results.Created($"/products/{product.Id}", product);
-// });
-// or:
-
-app.MapPost("/products", async (Product product, IProductRepository repo) =>
+app.MapPost("/products", async (string name, decimal price, string category, int stockQuantity, IProductService service) =>
 {
-    await repo.AddAsync(product);
+    var product = await service.CreateProductAsync(name, price, category, stockQuantity);
     return Results.Created($"/products/{product.Id}", product);
 })
 //.RequireAuthorization("AdminOnly")
@@ -243,17 +238,29 @@ app.MapPost("/products", async (Product product, IProductRepository repo) =>
 
 .RequireRateLimiting("fixed");  // endpoint level, also can globally, see above
 
-app.MapPut("/products/{id}", async (int id, Product product, IProductRepository repo) =>
+app.MapPut("/products/{id}", async (int id, string name, decimal price, string category, IProductService service) =>
 {
-    product.Id = id;
-    await repo.UpdateAsync(product);
+    await service.UpdateProductAsync(id, name, price, category);
     return Results.NoContent();
 });
 
-app.MapDelete("/products/{id}", async (int id, IProductRepository repo) =>
+app.MapDelete("/products/{id}", async (int id, IProductService service) =>
 {
-    await repo.DeleteAsync(id);
+    await service.DeleteProductAsync(id);
     return Results.NoContent();
+});
+
+// Business rule endpoints
+app.MapGet("/products/category/{category}", async (string category, IProductService service) =>
+    await service.GetProductsByCategoryAsync(category));
+
+app.MapGet("/products/low-stock", async (int threshold, IProductService service) =>
+    await service.GetLowStockProductsAsync(threshold));
+
+app.MapGet("/products/{id}/discount", async (int id, decimal discountPercentage, IProductService service) =>
+{
+    var discountedPrice = await service.CalculateProductDiscountAsync(id, discountPercentage);
+    return Results.Ok(new { DiscountedPrice = discountedPrice, DiscountPercentage = discountPercentage });
 });
 
 

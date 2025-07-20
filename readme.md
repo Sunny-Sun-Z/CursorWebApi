@@ -154,3 +154,4 @@ Demonstrate custom middleware and endpoint filters
 Attribute routing, route prefixes, convention-based routing (mainly for controllers, but can show minimal API patterns)
 
 
+why sometimes we says put the except handler at the front of pipeline?

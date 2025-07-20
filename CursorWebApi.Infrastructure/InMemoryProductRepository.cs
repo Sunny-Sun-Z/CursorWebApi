@@ -26,8 +26,8 @@ public class InMemoryProductRepository : IProductRepository
     {
         if (product == null)
             throw new ValidationException("Product cannot be null.");
-        if (string.IsNullOrWhiteSpace(product.Name))
-            throw new ValidationException("Product name is required.");
+
+        // Infrastructure layer only handles persistence, not business rules
         product.Id = _products.Count > 0 ? _products.Max(p => p.Id) + 1 : 1;
         _products.Add(product);
         _logger.LogInformation("Product added: {@Product}", product);
@@ -42,6 +42,8 @@ public class InMemoryProductRepository : IProductRepository
             ?? throw new ProductNotFoundException(product.Id);
         existing.Name = product.Name;
         existing.Price = product.Price;
+        existing.Category = product.Category;
+        existing.StockQuantity = product.StockQuantity;
         _logger.LogInformation("Product updated: {@Product}", product);
         return Task.CompletedTask;
     }
