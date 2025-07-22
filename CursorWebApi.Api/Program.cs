@@ -271,18 +271,18 @@ app.MapGet("/products", async (IProductService service) =>
 app.MapGet("/products/{id}", async (int id, IProductService service) =>
     await service.GetProductByIdAsync(id) is Product product ? Results.Ok(product) : Results.NotFound());
 
-app.MapPost("/products", async (string name, decimal price, string category, int stockQuantity, IProductService service) =>
-{
-    var product = await service.CreateProductAsync(name, price, category, stockQuantity);
-    return Results.Created($"/products/{product.Id}", product);
-})
-//.RequireAuthorization("AdminOnly")
-// below 2 use only 1, otherwise the second will make the first never be triggered if there is any error.
-.AddEndpointFilter<CursorWebApi.Api.Filters.ExceptionEndpointFilter>()
-.AddEndpointFilter<CursorWebApi.Api.Filters.ValidationAndLoggingEndpointFilter>()
+//app.MapPost("/products", async (string name, decimal price, string category, int stockQuantity, IProductService service) =>
+//{
+//    var product = await service.CreateProductAsync(name, price, category, stockQuantity);
+//    return Results.Created($"/products/{product.Id}", product);
+//})
+////.RequireAuthorization("AdminOnly")
+//// below 2 use only 1, otherwise the second will make the first never be triggered if there is any error.
+//.AddEndpointFilter<CursorWebApi.Api.Filters.ExceptionEndpointFilter>()
+//.AddEndpointFilter<CursorWebApi.Api.Filters.ValidationAndLoggingEndpointFilter>()
 
 
-.RequireRateLimiting("fixed");  // endpoint level, also can globally, see above
+//.RequireRateLimiting("fixed");  // endpoint level, also can globally, see above
 
 app.MapPut("/products/{id}", async (int id, string name, decimal price, string category, IProductService service) =>
 {
