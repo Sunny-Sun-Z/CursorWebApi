@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using AspNetCoreRateLimit;
 using Serilog;
 using Microsoft.Extensions.Caching.Memory;
-
+using Microsoft.Extensions.Caching.Distributed;
 
 // Configure Serilog at the very top (before builder)
 Log.Logger = new LoggerConfiguration()
@@ -149,12 +149,23 @@ builder.Services.AddCors(options =>
 // Configure in-memory caching
 builder.Services.AddMemoryCache(options =>
 {
-    options.SizeLimit = 1024; // Maximum number of cache entries
+    // options.SizeLimit = 1024; // Maximum number of cache entries
     options.ExpirationScanFrequency = TimeSpan.FromMinutes(5); // How often to scan for expired entries
 });
    builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
    builder.Services.AddInMemoryRateLimiting();
    builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = "localhost:6379"; // Change to your Redis server
+    options.InstanceName = "SampleInstance";
+});
+
+
+
+
 
 var app = builder.Build();
 
@@ -232,6 +243,22 @@ app.MapGet("/cache/stats", (IMemoryCache cache) =>
         CacheType = "In-Memory Cache"
     });
 });
+
+    app.MapGet("/redis-test", async (IDistributedCache cache) =>
+    {
+        var key = "test-key";
+        var value = await cache.GetStringAsync(key);
+        if (value == null)
+        {
+            value = $"Set at {DateTime.Now}";
+            await cache.SetStringAsync(key, value, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1)
+            });
+            return $"Cache miss. Setting value: {value}";
+        }
+        return $"Cache hit! Value: {value}";
+    });
 
 app.MapGet("/test-auth", () => "✅ Authentication working!").RequireAuthorization();
 // app.MapGet("/products", [Authorize] async (IProductRepository repo) => await repo.GetAllAsync());

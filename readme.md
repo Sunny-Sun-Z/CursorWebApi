@@ -125,6 +125,12 @@ dotnet add package Serilog.Sinks.Console
 dotnet add package Serilog.Sinks.File
 
 
+dotnet add CursorWebApi.Api package Microsoft.Extensions.Caching.StackExchangeRedis
+dotnet add CursorWebApi.Api package Microsoft.Extensions.Caching.Abstractions
+
+docker run -d --name redis-test -p 6379:6379 redis
+
+
 
 Exception Handling Plan:
 Global Exception Middleware - Catch all unhandled exceptions

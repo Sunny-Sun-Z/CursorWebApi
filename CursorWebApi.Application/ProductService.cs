@@ -2,6 +2,8 @@ using CursorWebApi.Domain;
 using CursorWebApi.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Caching.Distributed;
+
 
 namespace CursorWebApi.Application;
 
@@ -11,11 +13,14 @@ public class ProductService : IProductService
     private readonly ILogger<ProductService> _logger;
     private readonly IMemoryCache _cache;
 
-    public ProductService(IProductRepository repository, ILogger<ProductService> logger, IMemoryCache cache)
+    private readonly IDistributedCache _distributedCache;
+
+    public ProductService(IProductRepository repository, ILogger<ProductService> logger, IMemoryCache cache, IDistributedCache distributedCache)
     {
         _repository = repository;
         _logger = logger;
         _cache = cache;
+        _distributedCache = distributedCache;
     }
 
     public async Task<IEnumerable<Product>> GetAllProductsAsync()
@@ -229,5 +234,21 @@ public class ProductService : IProductService
         }
 
         _logger.LogInformation("Cache invalidation completed for product {ProductId}", productId);
+    }
+
+     public async Task<string?> GetCachedValueAsync(string key)
+    {
+        // Try to get from distributed cache
+        var value = await _distributedCache.GetStringAsync(key);
+        if (value != null)
+            return value;
+
+        // Not in cache: fetch from source, then cache
+        value = "some data from DB";
+        await _distributedCache.SetStringAsync(key, value, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+        });
+        return value;
     }
 }
