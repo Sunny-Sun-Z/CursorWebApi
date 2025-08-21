@@ -3,6 +3,7 @@ using CursorWebApi.Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Caching.Distributed;
+using CursorWebApi.Domain.Messaging;
 
 
 namespace CursorWebApi.Application;
@@ -14,13 +15,16 @@ public class ProductService : IProductService
     private readonly IMemoryCache _cache;
 
     private readonly IDistributedCache _distributedCache;
+    private readonly IMessagePublisher _publisher;
 
-    public ProductService(IProductRepository repository, ILogger<ProductService> logger, IMemoryCache cache, IDistributedCache distributedCache)
+    public ProductService(IProductRepository repository, ILogger<ProductService> logger, 
+        IMemoryCache cache, IDistributedCache distributedCache, IMessagePublisher publisher)
     {
         _repository = repository;
         _logger = logger;
         _cache = cache;
         _distributedCache = distributedCache;
+        _publisher = publisher;
     }
 
     public async Task<IEnumerable<Product>> GetAllProductsAsync()
@@ -81,7 +85,8 @@ public class ProductService : IProductService
 
         // Business Rule: Use domain factory method
         var product = Product.Create(name, price, category, stockQuantity);
-
+        
+        await _publisher.PublishAsync("products", product);
         await _repository.AddAsync(product);
 
         // Invalidate related caches

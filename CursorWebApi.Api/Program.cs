@@ -16,6 +16,11 @@ using Serilog;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Caching.Distributed;
 
+using RabbitMQ.Client;
+using CursorWebApi.Infrastructure.Messaging;
+using CursorWebApi.Domain.Messaging;
+using MyApp.Infrastructure.Messaging;
+
 // Configure Serilog at the very top (before builder)
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
@@ -164,6 +169,16 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 
 
+builder.Services.AddScoped<IMessagePublisher, RabbitMQPublisher>();
+builder.Services.AddScoped<IMessageConsumer, RabbitMQConsumer>();
+
+builder.Services.AddSingleton<IConnection>(_ =>
+{
+    var factory = new ConnectionFactory { HostName = "localhost" };
+    return factory.CreateConnection();
+});
+
+builder.Services.AddHostedService<ProductConsumerWorker>();
 
 
 
@@ -280,9 +295,14 @@ app.MapGet("/products/{id}", async (int id, IProductService service) =>
 //// below 2 use only 1, otherwise the second will make the first never be triggered if there is any error.
 //.AddEndpointFilter<CursorWebApi.Api.Filters.ExceptionEndpointFilter>()
 //.AddEndpointFilter<CursorWebApi.Api.Filters.ValidationAndLoggingEndpointFilter>()
-
-
 //.RequireRateLimiting("fixed");  // endpoint level, also can globally, see above
+
+app.MapPost("/products", async (string name, decimal price, string category, int stockQuantity, IProductService service) =>
+{
+    var product = await service.CreateProductAsync(name, price, category, stockQuantity); 
+    return Results.Created($"/products/{product.Id}", product);
+});
+
 
 app.MapPut("/products/{id}", async (int id, string name, decimal price, string category, IProductService service) =>
 {

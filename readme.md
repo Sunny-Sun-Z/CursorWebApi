@@ -132,6 +132,17 @@ docker run -d --name redis-test -p 6379:6379 redis
 
 
 
+dotnet add package RabbitMQ.Client
+dotnet add package Microsoft.Extensions.Hosting
+or 
+Install-Package RabbitMQ.Client
+Install-Package Microsoft.Extensions.Hosting
+the online rabbitmq is to:  http://localhost:15672/ and login using: guest/guest
+
+
+
+
+
 Exception Handling Plan:
 Global Exception Middleware - Catch all unhandled exceptions
 Custom Exception Types - Business logic exceptions
